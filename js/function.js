@@ -650,6 +650,8 @@ var bigPicLocked = false;
 function onmouseShow(x, source)
 {
 	if(bigPicLocked) return;
+	// 空白欄位：不影響目前預覽
+	if(!x.alt) return;
 
 	if(source == 'search') $('#cardinformation').css('margin', '150px 0px 0px 40px');
 	else $('#cardinformation').css('margin', '150px 0px 0px 960px');
