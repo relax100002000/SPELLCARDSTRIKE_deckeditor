@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="ja">
+	<head>
+		<meta charset="UTF-8" />
+		<!-- Wiki の画像 CDN は Referer 付きだと拒否されることがあるため送らない -->
+		<meta name="referrer" content="no-referrer" />
+		<!-- ==== Force-reload local JS / CSS / HTML on every visit (no browser cache) ==== -->
+		<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+		<meta http-equiv="Pragma" content="no-cache" />
+		<meta http-equiv="Expires" content="0" />
+		<script>
+			(function(){
+				var v = '?v=' + Date.now();
+				document.write('<script src="js/card_info.js' + v + '"><\/script>');
+				document.write('<script src="js/function.js' + v + '"><\/script>');
+			})();
+		</script>
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+		<title>Spell Card Strike Deck Builder</title>
+	</head>
+	<style>
+		input[type=checkbox] { height: 18px; width: 18px; }
+		img {
+			border-style: solid;
+			border-width: 1px;
+			border-radius: 8px;
+		}
+		* { font-size: 16px; font-family: sans-serif; }
+		input[type="file"] {
+			position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+			overflow: hidden; clip: rect(0,0,0,0); border: 0;
+		}
+		button, .custom-file-upload {
+			height: 50px;
+			background-color: white;
+			color: black;
+			text-align: center;
+			text-decoration: none;
+			display: inline-block;
+			font-size: 16px;
+			margin: 4px 2px;
+			border-style: solid;
+			border-width: 1px;
+			border-radius: 10px;
+			cursor: pointer;
+		}
+		canvas { width: 205px !important; height: 205px !important; }
+		button.small-btn { height: 26px; padding: 0 10px; font-size: 14px; line-height: 24px; border-radius: 6px; margin: 2px; vertical-align: middle; }
+		span, input[type='checkbox'] { user-select: none; cursor: pointer; }
+		span { display: inline-block; vertical-align: middle; line-height: normal; margin-top: -10px; }
+		textarea { width: 80%; height: 60%; }
+		select { max-width: 260px; }
+
+		.zone-title { font-weight: bold; cursor: default; margin-top: 0px; }
+		.zone-count { cursor: default; margin-top: 0px; color: #666; }
+		.zone-count.ok { color: #2e7d32; }
+		.zone-count.ng { color: #c62828; }
+		.zone-hint { cursor: default; margin-top: 0px; color: #888; font-size: 13px; }
+		.deck-slot { cursor: pointer; }
+		#optionZone img, #aceZone img { margin-right: 6px; }
+		#mainZone img { margin-right: 1px; margin-bottom: 1px; }
+		#deckCheck { cursor: default; margin-top: 0px; font-size: 14px; }
+		#deckCheck.ok { color: #2e7d32; }
+		#deckCheck.ng { color: #c62828; }
+		.side-box { display: inline-block; vertical-align: top; margin-right: 24px; }
+
+		#window-container, #window-container-list, #window-container-code, #window-container-comment {
+			display: none;
+			position: fixed;
+			left: 0; top: 0;
+			width: 100%; height: 100%;
+			background-color: rgba(0,0,0,0.5);
+			z-index: 2000;
+		}
+		#window-pop {
+			background: white;
+			margin: 20px;
+			overflow: auto;
+			border-radius: 20px;
+			max-height: calc(100% - 40px);
+		}
+		#window-pop-list {
+			background: white;
+			margin: 50px 12%;
+			overflow: auto;
+			border-radius: 20px;
+			max-height: calc(100% - 100px);
+		}
+		#window-pop-code, #window-pop-comment {
+			background: white;
+			margin: 50px 30%;
+			overflow: auto;
+			border-radius: 20px;
+			max-height: calc(100% - 100px);
+		}
+		.window-content { margin: 30px; }
+		.view-row { margin-bottom: 14px; }
+		.view-row img { margin: 2px; border-radius: 8px; }
+		.view-title { font-weight: bold; margin: 6px 0; display: block; }
+
+		/* === Dark Mode Toggle Button === */
+		#darkModeToggle {
+			cursor: pointer;
+			background: transparent;
+			border: 1px solid #888;
+			border-radius: 6px;
+			padding: 2px 10px;
+			height: 24px;
+			line-height: 18px;
+			font-size: 14px;
+			margin-left: 8px;
+			user-select: none;
+			vertical-align: middle;
+		}
+		#darkModeToggle:hover { background: rgba(0,0,0,0.08); }
+
+		/* === big_pic lock indicator (when ALT is held) === */
+		body.bigpic-locked #cardinformation {
+			outline: 3px solid #ffb300;
+			outline-offset: 2px;
+			box-shadow: 0 0 16px rgba(255, 179, 0, 0.65);
+		}
+		body.bigpic-locked #cardinformation::before {
+			content: "🔒 LOCKED — release ALT to unlock";
+			position: absolute;
+			top: -28px; left: 0;
+			background: #ffb300;
+			color: #000;
+			font-weight: 700;
+			font-size: 12px;
+			padding: 3px 8px;
+			border-radius: 4px;
+			z-index: 1000;
+			pointer-events: none;
+			white-space: nowrap;
+		}
+		#bigPicHint {
+			display: inline-block;
+			font-size: 11px;
+			color: #555;
+			background: #fff8e1;
+			border: 1px solid #ffd54f;
+			border-radius: 4px;
+			padding: 2px 6px;
+			margin: 4px 0 4px 8px;
+			vertical-align: middle;
+			user-select: none;
+		}
+		.alt-lock-tip {
+			display: inline-block;
+			font-size: 12px;
+			color: #b26a00;
+			background: #fff8e1;
+			border: 1px dashed #ffb300;
+			border-radius: 4px;
+			padding: 1px 6px;
+			margin: 0 6px;
+			vertical-align: middle;
+		}
+		#infoTable td { padding: 3px 5px; vertical-align: top; }
+		#infoTable .label { width: 110px; white-space: nowrap; }
+		#infoTable img.range { width: 48px; height: 48px; image-rendering: pixelated; border: none; border-radius: 0; }
+		.abtext, .abtext * { font-size: 13px; line-height: 1.55; }
+		.abtext .sec { font-size: 11px; font-weight: bold; color: #fff; display: inline-block; padding: 0 8px; border-radius: 3px; margin: 6px 0 2px; }
+		.abtext .sec:first-child { margin-top: 0; }
+		.abtext .sec-a { background: #2e7d4f; }
+		.abtext .sec-s { background: #1f4e8c; }
+		.abtext .sec-x { background: #b23b3b; }
+		.abtext .sec-inline { font-size: 11px; color: #fff; background: #8e3b6e; padding: 0 6px; border-radius: 3px; margin: 0 4px 0 0; vertical-align: 1px; cursor: default; }
+		.abtext .ic { font-size: 11px; font-weight: bold; display: inline-block; min-width: 14px; padding: 0 4px; margin: 0 1px; border-radius: 8px; color: #fff; text-align: center; vertical-align: 1px; line-height: 16px; cursor: default; }
+		.abtext .ic-a { background: #d32f2f; }
+		.abtext .ic-r { background: #1a3e8c; }
+		.abtext .ic-t { background: #2b6cb0; }
+		.abtext .ic-c { background: #2e7d32; }
+		.abtext .ic-e { background: #e0a020; }
+		.abtext .ic-rule { background: #c9a400; }
+		.abtext .ic-j { background: #d65fa0; border-radius: 3px; }
+		.abtext .cost { color: #555; background: #eee; padding: 0 4px; border-radius: 3px; margin-left: 4px; }
+		.abtext .kw { color: #7b1fa2; }
+		body.dark-mode .abtext .cost { background: #333; color: #ddd; }
+		body.dark-mode .abtext .kw { color: #ce93d8; }
+		body.dark-mode .abtext .ic, body.dark-mode .abtext .sec, body.dark-mode .abtext .sec-inline { color: #fff; }
+		.pill { font-size: 12px; margin-top: 0px; padding: 0 6px; border-radius: 999px; background: #f3e5f5; color: #7b1fa2; cursor: default; }
+		.color-chip {
+			display: inline-block; width: 12px; height: 12px; border-radius: 3px;
+			margin: 0 4px 0 0; vertical-align: -1px; border: 1px solid rgba(0,0,0,0.3);
+		}
+
+		/* === Dark Mode Theme === */
+		body.dark-mode { background-color: #1a1a1a; color: #e6e6e6; }
+		body.dark-mode, body.dark-mode * { color: #e6e6e6; }
+		body.dark-mode a { color: #4da3ff; }
+		body.dark-mode a:visited { color: #b48bff; }
+		body.dark-mode button, body.dark-mode .custom-file-upload {
+			background-color: #2f2f2f; color: #e6e6e6; border-color: #555;
+		}
+		body.dark-mode button:hover, body.dark-mode .custom-file-upload:hover { background-color: #3d3d3d; }
+		body.dark-mode select, body.dark-mode input[type="text"], body.dark-mode textarea {
+			background-color: #2a2a2a; color: #e6e6e6; border: 1px solid #555;
+		}
+		body.dark-mode #window-pop, body.dark-mode #window-pop-list,
+		body.dark-mode #window-pop-code, body.dark-mode #window-pop-comment {
+			background: #242424; color: #e6e6e6;
+		}
+		body.dark-mode #cardinformation { background-color: #242424 !important; border-color: #555 !important; }
+		body.dark-mode #cardinformation table, body.dark-mode #cardinformation td { border-color: #555 !important; }
+		body.dark-mode img { border-color: #555; }
+		body.dark-mode #bigPicHint, body.dark-mode .alt-lock-tip { color: #ffd54f; background: #3a2e00; border-color: #c79100; }
+		body.dark-mode .zone-count.ng, body.dark-mode #deckCheck.ng { color: #ff8a80; }
+		body.dark-mode .zone-count.ok, body.dark-mode #deckCheck.ok { color: #81c784; }
+		body.dark-mode .zone-count, body.dark-mode .zone-hint { color: #aaa; }
+		body.dark-mode .pill { background: #3a2240; color: #f0a8ff; }
+		body.dark-mode #infoTable b { color: #ce93d8 !important; }
+	</style>
+	<body>
+		<script>
+			// === Dark Mode: 早期套用,避免畫面閃爍 ===
+			try {
+				var saved = localStorage.getItem('scs_dark_mode');
+				var wantDark = false;
+				if (saved === '1') wantDark = true;
+				else if (saved === null && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) wantDark = true;
+				if (wantDark) document.body.classList.add('dark-mode');
+			} catch(e) {}
+		</script>
+
+		<div id='cardinformation' style='border: solid; border-width: 2px; position: absolute; z-index: 999; background-color: white; visibility: hidden; margin: 150px 0px 0px 40px;'>
+			<span id="bigPicHint" title="Hold ALT to keep this preview open and frozen on the current card.">💡 Hold <b>ALT</b> to lock this preview · release to unlock</span>
+			<img id="cross" width="30px" height="30px" style='border-style: none; float: right; margin: 4px 6px 0 0; cursor: pointer;' src="img/cancel_icon.png" onclick="if(!window.bigPicLocked) $('#cardinformation').css('visibility', 'hidden');">
+			<table>
+				<tr>
+					<td style="vertical-align: top;">
+						<img width="358px" height="504px" id="big_pic" style="border-radius: 14px;" alt="" src="img/empty.jpg" onclick="addDeck(this, event)">
+					</td>
+					<td style="vertical-align: top;">
+						<table id="infoTable" width="380px" border="1" style="border: solid; border-width: 1px; border-collapse: collapse;"></table>
+					</td>
+				</tr>
+			</table>
+		</div>
+
+		<span style="position: absolute; top: 8px; left: 8px; cursor: default;">
+			<button id="darkModeToggle" type="button" onclick="toggleDarkMode()" title="切換黑暗模式">🌙 Dark</button>
+			<span class="alt-lock-tip" title="Hold ALT to lock the card preview window.">🔒 Hold <b>ALT</b> = lock card preview</span>
+			※Right-click in the deck can add existing card.　※<b>Shift+Click</b> = エースに指定
+			<br>Deck List
+			<select id="selectDeck" onchange="selectDeck();">
+				<option value="">--Select Deck--</option>
+			</select>
+			<button class="small-btn" onclick="hideInfo(); openCodeWindow();">Add</button>
+			<button class="small-btn" onclick="hideInfo(); deletedecklist();">Delete</button>
+		</span>
+
+		<table width="1850px" style="margin-top: 56px;">
+			<tr>
+				<td style="vertical-align: bottom; width: 950px;">
+					<table>
+						<tr>
+							<td><div><canvas id="rankChart"></canvas></div></td>
+							<td><div><canvas id="attrChart"></canvas></div></td>
+							<td><div><canvas id="costChart"></canvas></div></td>
+							<td><div><canvas id="raceChart"></canvas></div></td>
+						</tr>
+					</table>
+					<div style="margin-top: 6px;">
+						<div class="side-box">
+							<span class="zone-title">オプション</span>
+							<span class="zone-count" id="optionCount">0 / 1</span>
+							<div id="optionZone"></div>
+						</div>
+						<div class="side-box">
+							<span class="zone-title">エース</span>
+							<span class="zone-count" id="aceCount">0 / 1</span>
+							<div id="aceZone"></div>
+						</div>
+						<div class="side-box" style="padding-top: 4px;">
+							<span class="zone-title">スペルカード</span>
+							<span class="zone-count" id="spellCount">0 / 51</span>
+							<br>
+							<span class="zone-title">合計</span>
+							<span class="zone-count" id="totalCount">0 / 52</span>
+							<br><br>
+							<span id="deckCheck"></span>
+							<br><br>
+							<span class="zone-hint">エース＝ゲーム開始時にオプションを装備して<br>ステージに置くスペルカード (51枚に含む)</span>
+						</div>
+					</div>
+				</td>
+				<td style="vertical-align: top;">
+					<button onclick="hideInfo(); cleardeck();">Clear Deck</button>
+					<button onclick="hideInfo(); openWindow('view');">Deck View</button>
+					<button onclick="hideInfo(); openWindow('list');">Card List</button>
+					<button onclick="hideInfo(); openCommentManager();">Comment</button>
+					<button onclick="hideInfo(); openCodeWindow();">Deck Code</button>
+					<button style="margin-left: 120px;" onclick="showVersion();">About</button>
+					<br><br>
+					<input type="checkbox" id="k_spell" checked><span onclick="clickSpan(this)">スペルカード </span>&emsp;&emsp;
+					<input type="checkbox" id="k_option" checked><span onclick="clickSpan(this)">オプション </span>
+					<br><br>
+					<input type="checkbox" id="a_you" checked><span onclick="clickSpan(this)"><i class="color-chip" style="background:#8e5bd0"></i>妖 </span>&emsp;&emsp;
+					<input type="checkbox" id="a_rei" checked><span onclick="clickSpan(this)"><i class="color-chip" style="background:#3f8fe0"></i>霊 </span>&emsp;&emsp;
+					<input type="checkbox" id="a_kami" checked><span onclick="clickSpan(this)"><i class="color-chip" style="background:#e0a020"></i>神 </span>&emsp;&emsp;
+					<input type="checkbox" id="a_ma" checked><span onclick="clickSpan(this)"><i class="color-chip" style="background:#d94848"></i>魔 </span>&emsp;&emsp;
+					<input type="checkbox" id="a_none" checked><span onclick="clickSpan(this)"><i class="color-chip" style="background:#a0a0a0"></i>無属性 </span>
+					<br><br>
+					<span id="rankChecks" style="margin-top: 0px;"></span>
+					<br><br>
+					ストライカー
+					<select id="selectChara"><option value="0">--All ストライカー--</option></select>
+					&emsp;
+					種族
+					<select id="selectRace"><option value="0">--All 種族--</option></select>
+					&emsp;
+					所属
+					<select id="selectAff"><option value="0">--All 所属--</option></select>
+					<br><br>
+					タイプ
+					<select id="selectStype"><option value="0">--All タイプ--</option></select>
+					&emsp;
+					召喚コスト
+					<select id="selectCost">
+						<option value="0">--All--</option>
+						<option value="なし">なし</option>
+						<option value="◯">◯ (1)</option>
+						<option value="◯◯">◯◯ (2)</option>
+						<option value="属性">属性指定 (妖・魔…)</option>
+					</select>
+					<br><br>
+					キーワード検索 <input type="text" id="textsearch" size="51" placeholder="カード名 / ストライカー / 能力 / 番号 (スペースでAND検索)">
+					<br><br>
+					商品検索
+					<select id="selectProduct"><option value="0">--All Product--</option></select>
+					&emsp;
+					<input type="checkbox" id="onlyChron"><span onclick="clickSpan(this)">CHRONICLE 再録のみ </span>
+					&emsp;
+					Sort
+					<select id="selectSort" onchange="search();">
+						<option value="0">番号順</option>
+						<option value="1">Rank 高→低</option>
+						<option value="2">Rank 低→高</option>
+						<option value="3">属性→Rank</option>
+						<option value="4">ストライカー名順</option>
+					</select>
+					<br><br>
+					<button onclick="search();">Search</button>&emsp;&emsp;<button onclick="checkall();">Select All</button>&emsp;&emsp;<button onclick="uncheckall();">Clear All</button>&emsp;&emsp;<button onclick="resetFilters();">Reset</button>
+					<br><br>
+					Total: <span id="totalCard" style="cursor: default; margin-top: 0px;">0</span>
+				</td>
+			</tr>
+			<tr>
+				<td style="vertical-align: top;" oncontextmenu="return false;">
+					<span class="zone-title">デッキ</span>
+					<span class="zone-count" id="mainCount">0 / 50</span>
+					<span class="zone-hint">(クリック＝外す / Shift+クリック＝エースにする / 右クリック＝同じカードを追加)</span>
+					<div id="mainZone" style="margin-top: 4px;"></div>
+					<div style="margin-top: 10px;">
+						<span>日文資料庫來源: </span><a target="_blank" href="https://wikiwiki.jp/scstcg/">スペルカードストライク Wiki*</a>
+						<br>
+						<span>卡圖來源: </span><a target="_blank" href="https://wikiwiki.jp/scstcg/SCS01">Wiki 画像リスト (SCS01～SCS03)</a>
+						<br>
+						<span>全カード索引: </span><a target="_blank" href="cardlist.html">cardlist.html</a>
+					</div>
+				</td>
+				<td style="vertical-align: top;">
+					Page: <span style="cursor: default; margin-top: 0px;" id="page"></span>
+					<table>
+						<tr>
+							<td rowspan="2">
+								<img id="larrow" style="cursor: pointer; border: none;" height="172px" src="img/larrow.png" onclick="changePage('back')">
+							</td>
+							<td style="height: 180px; vertical-align: bottom;" id="resultRow0"></td>
+							<td rowspan="2">
+								<img id="rarrow" style="cursor: pointer; border: none;" height="172px" src="img/rarrow.png" onclick="changePage('next')">
+							</td>
+						</tr>
+						<tr>
+							<td style="height: 180px; vertical-align: bottom;" id="resultRow1"></td>
+						</tr>
+					</table>
+				</td>
+			</tr>
+		</table>
+
+		<div id="window-container-list">
+			<div id="window-pop-list">
+				<div id="decklist" class="window-content"></div>
+			</div>
+		</div>
+
+		<div id="window-container-code">
+			<div id="window-pop-code">
+				<div id="deckcode" style="text-align: center;" class="window-content">
+					Deck Title
+					<br><br>
+					<input style="width: 80%;" type="text" id="deckTitle" value="Simple Deck" maxlength="64">
+					<br><br>
+					Deck Code
+					<br><br>
+					<textarea style="height: 300px;" id="textCode" rows="4" cols="50"></textarea>
+					<div id="deckStr">&emsp;</div>
+					<br>
+					<div style="display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 10px; max-width: 430px; margin: 0 auto;">
+						<button style="width: 200px; margin: 0;" onclick="downloadDeck();">Download Deck</button>
+						<label for="fileinput" class="custom-file-upload" style="width: 200px; height: 50px; box-sizing: border-box; padding: 0; margin: 0; display: inline-flex; align-items: center; justify-content: center;">Upload Deck</label>
+						<input style="display: none;" id="fileinput" type="file" accept=".csv,.txt"/>
+						<button style="width: 200px; margin: 0;" onclick="copyClipboard();">Copy to clipboard</button>
+						<button style="width: 200px; margin: 0;" onclick="loadFromCode();">Load code</button>
+						<button style="width: 410px; margin: 0;" onclick="addDecklist();">Add to deck list</button>
+						<button id="resetAllDecksBtn" style="width: 410px; margin: 0; background-color: #c0392b; color: #fff; border: 2px solid #962d22; font-weight: bold;" onclick="resetAllDecks();" title="Delete every saved deck (cannot be undone)">Reset all saved decks</button>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div id="window-container-comment">
+			<div id="window-pop-comment">
+				<div id="commentcode" style="text-align: center;" class="window-content">
+					Comment Profile (JSON)
+					<br><br>
+					<textarea style="height: 300px;" id="textCommentCode" rows="4" cols="50"></textarea>
+					<div id="commentStr">&emsp;</div>
+					<br>
+					<div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; max-width: 430px; margin: 0 auto;">
+						<button style="width: 200px; margin: 0;" onclick="downloadCommentBlob();">Download Comment</button>
+						<label for="commentFileinput" class="custom-file-upload" style="width: 200px; height: 50px; box-sizing: border-box; padding: 0; margin: 0; display: inline-flex; align-items: center; justify-content: center;">Upload Comment</label>
+						<input style="display: none;" id="commentFileinput" type="file" accept=".json,.txt"/>
+						<button style="width: 200px; margin: 0;" onclick="copyCommentClipboard();">Copy to clipboard</button>
+						<button style="width: 200px; margin: 0;" onclick="applyCommentText();">Apply JSON</button>
+						<button style="width: 410px; margin: 0; background-color: #c0392b; color: #fff; border: none;" onclick="resetAllComments();" title="Delete every saved comment (cannot be undone)">Reset all comments</button>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div id="window-container">
+			<div id="window-pop">
+				<div class="window-content" id="deckView"></div>
+			</div>
+		</div>
+	</body>
+</html>
