@@ -1,12 +1,12 @@
 # Spell Card Strike Deck Builder
 
-スペルカードストライク (AQUA STYLE) 的 deckbuilder，架構沿用 WIXOSS_deckeditor（ANGE_UNITE_deckeditor 版的精簡寫法）。
+スペルカードストライク (AQUA STYLE) 的 deck builder，架構沿用 WIXOSS_deckeditor（ANGE_UNITE_deckeditor 版的精簡寫法）。
 
 直接用瀏覽器開 `index.html` 即可。
 
 ## 檔案
 
-- `index.html` — deckbuilder 主頁
+- `index.html` — deck builder 主頁
 - `js/function.js` — 搜尋、構築、Deck Code、Comment、暗色模式
 - `js/card_info.js` — 卡片資料 464 種（スペルカード 424＋オプション 40）與攻撃範囲圖
 - `t/*.webp` — 160px 縮圖（牌組、搜尋結果使用）
