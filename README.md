@@ -32,6 +32,7 @@
 - `card_info.js` 由 cardlist.html 內的 DATA 轉出；修正 SCS02-060 Rank/POW/DEF（5 / 5/5）、`○`→`◯`、`ﾙｰﾙ`→`ルール`
 - 能力欄是 Wiki 上的摘要，完整效果請看卡圖
 - 大圖外連 `https://cdn.wikiwiki.jp/to/w/scstcg/SCS0x/::ref/NNN.png`（頁面設 no-referrer），讀不到時改用本機縮圖
+- SCS03 的 9 張低解析度卡（002/004/005/009/010/013、OP01～03，Wiki 原圖只有 240×338）改用使用者提供的高解析度圖：`img/hires/<卡號>.webp`（1074×1512），card_info.js 的 IMG 指向本機檔；t/ 縮圖也由新圖重新產生
 - 召喚コスト空白＝不需符力（なし）
 
 ## localStorage key
